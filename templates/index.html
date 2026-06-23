@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FeedBot Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #5b6af0;
+    --accent2: #38d9a9;
+    --danger: #f03e3e;
+    --text: #e2e4ef;
+    --muted: #6b7280;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #0f1117 !important; }
+  body { 
+    background: #0f1117 !important; 
+    color: #e2e4ef !important; 
+    font-family: 'Inter', system-ui, sans-serif; 
+    min-height: 100vh; 
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header .logo { font-size: 22px; font-weight: 700; letter-spacing: -.5px; }
+  header .logo span { color: var(--accent); }
+  header .status { margin-left: auto; font-size: 13px; color: var(--muted); }
+  header .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); margin-right: 6px; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+   .card {
+     background: #1a1d27 !important;
+     border: 1px solid #2a2d3a !important;
+     border-radius: 10px;
+     padding: 24px;
+     margin-bottom: 16px;
+   }
+   .card h2 { 
+     font-size: 15px; 
+     font-weight: 600; 
+     margin-bottom: 16px; 
+     color: #e2e4ef !important;
+     border-bottom: 1px solid #2a2d3a;
+     padding-bottom: 8px;
+   }
+  .card h2 .icon { margin-right: 8px; }
+
+  input, select {
+    width: 100%; padding: 9px 12px; border-radius: 7px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-size: 14px; margin-bottom: 10px;
+    outline: none; transition: border .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 7px; border: none;
+    cursor: pointer; font-size: 13px; font-weight: 500; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--accent2); color: #0f1117; }
+  .btn-danger  { background: var(--danger);  color: #fff; }
+  .btn-full { width: 100%; justify-content: center; margin-top: 4px; }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 32px; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #252836; border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 12px; font-size: 13px;
+  }
+  .tag .rm { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+  .tag .rm:hover { color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px;
+    border-radius: 12px; font-weight: 600; text-transform: uppercase;
+  }
+  .badge-rss  { background: #3b3f7a; color: #a5b4fc; }
+  .badge-web  { background: #1e4a3a; color: #6ee7b7; }
+  .badge-on   { background: #1a3a2a; color: var(--accent2); }
+  .badge-off  { background: #2a1a1a; color: var(--danger); }
+
+  .run-section {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px;
+    display: flex; align-items: center; gap: 16px; margin-top: 24px; flex-wrap: wrap;
+  }
+  .run-section .info { flex: 1; }
+  .run-section .info p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  #run-log {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 12px 16px;
+    font-family: monospace; font-size: 12px; color: var(--accent2);
+    min-height: 40px; margin-top: 16px; white-space: pre-wrap; display: none;
+  }
+
+  .flash { padding: 10px 16px; border-radius: 7px; margin-bottom: 20px; font-size: 13px; }
+  .flash-ok  { background: #1a3a2a; color: var(--accent2); border: 1px solid #2a5a3a; }
+  .flash-err { background: #3a1a1a; color: var(--danger); border: 1px solid #5a2a2a; }
+
+  .settings-row { display: flex; gap: 10px; align-items: flex-end; }
+  .settings-row input { margin-bottom: 0; }
+
+  /* Web Search Styles */
+  #web-search-results {
+    margin-top: 16px;
+    display: none;
+  }
+  .search-result-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+  }
+  .search-result-item a {
+    color: var(--accent);
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .search-result-item a:hover {
+    text-decoration: underline;
+  }
+  .search-result-item .result-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .search-result-item .result-url {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .search-controls {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-top: 12px;
+  }
+  .search-controls input { margin-bottom: 0; flex: 1; }
+  .search-results-count {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .search-result-item .result-source {
+    font-size: 11px;
+    color: var(--accent2);
+    margin-bottom: 4px;
+  }
+</head>
+</style>
+<body>
+
+
+
+<header>
+  <div class="logo">Feed<span>Bot</span></div>
+  <div class="status"><span class="dot"></span>Dashboard</div>
+</header>
+
+<div class="container">
+
+{% if msg %}
+<div class="flash flash-{{ msg_type }}">{{ msg }}</div>
+{% endif %}
+
+<div class="grid">
+
+  <!-- KEYWORDS -->
+  <div class="card">
+    <h2><span class="icon">&#x1F511;</span>Keywords</h2>
+    <div class="tag-list">
+      {% for kw in keywords %}
+      <span class="tag">
+        {{ kw.word }}
+        <form method="post" action="/keywords/delete/{{ kw.id }}" style="display:inline">
+          <button class="rm" type="submit">&times;</button>
+        </form>
+      </span>
+      {% endfor %}
+      {% if not keywords %}<span style="color:var(--muted);font-size:13px">No keywords yet</span>{% endif %}
+    </div>
+    <form method="post" action="/keywords/add">
+      <label>Add keyword</label>
+      <div style="display:flex;gap:8px">
+        <input name="word" placeholder="e.g. artificial intelligence" required style="margin:0">
+        <button class="btn btn-primary" type="submit">Add</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- TELEGRAM SETTINGS -->
+  <div class="card">
+    <h2><span class="icon">&#x2708;&#xFE0F;</span>Telegram Settings</h2>
+    <form method="post" action="/settings">
+      <label>Bot Token</label>
+      <input name="telegram_bot_token" placeholder="1234567890:ABCdef..." value="{{ bot_token or '' }}">
+      <label>Channel ID or username</label>
+      <input name="telegram_channel" placeholder="@mychannel or -100123456789" value="{{ channel or '' }}">
+      <button class="btn btn-primary btn-full" type="submit">&#x1F4BE; Save Settings</button>
+    </form>
+  </div>
+
+</div>
+
+<!-- WEB SEARCH -->
+<div class="card" style="margin-top:24px">
+  <h2><span class="icon">&#x1F50D;</span>Web Search & Send</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+    Search the web or configured sources with keywords, open links, scrape content, and send to Telegram.
+  </p>
+  <label>Keywords (comma-separated)</label>
+  <input id="search-keywords" placeholder="e.g. machine learning, AI technology">
+  
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:150px">
+      <label>Max Links</label>
+      <input type="number" id="search-max-links" value="5" min="1" max="20" style="margin:0">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding-top:18px">
+      <input type="checkbox" id="search-scrape" checked style="width:16px;height:16px;margin:0">
+      <label for="search-scrape" style="margin:0;cursor:pointer">Scrape page content</label>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding-top:18px">
+      <input type="checkbox" id="search-send" checked style="width:16px;height:16px;margin:0">
+      <label for="search-send" style="margin:0;cursor:pointer">Send to Telegram</label>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding-top:18px">
+      <input type="checkbox" id="search-sources-only" style="width:16px;height:16px;margin:0">
+      <label for="search-sources-only" style="margin:0;cursor:pointer">Search Sources Only</label>
+    </div>
+  </div>
+  
+  <button class="btn btn-success btn-full" id="search-btn" onclick="webSearch()">&#x1F50D; Search & Send Links</button>
+  
+  <div id="web-search-results"></div>
+  <div id="search-log" style="display:none;margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:12px 16px;font-family:monospace;font-size:12px;color:var(--accent2);white-space:pre-wrap"></div>
+</div>
+
+<!-- SOURCES -->
+<div class="card" style="margin-top:24px">
+  <h2><span class="icon">&#x1F4E1;</span>Sources</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th><th>URL</th><th>Type</th><th>Status</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in sources %}
+    <tr>
+      <td><strong>{{ s.name }}</strong></td>
+      <td style="color:var(--muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        <a href="{{ s.url }}" target="_blank" style="color:var(--accent);text-decoration:none">{{ s.url }}</a>
+      </td>
+      <td><span class="badge badge-{{ s.type }}">{{ s.type }}</span></td>
+      <td><span class="badge badge-{{ 'on' if s.active else 'off' }}">{{ 'Active' if s.active else 'Paused' }}</span></td>
+      <td style="white-space:nowrap">
+        <form method="post" action="/sources/toggle/{{ s.id }}" style="display:inline">
+          <button class="btn btn-primary" type="submit" style="padding:5px 10px;font-size:12px">
+            {{ '&#x23F8;' if s.active else '&#9654;' }}
+          </button>
+        </form>
+        <form method="post" action="/sources/delete/{{ s.id }}" style="display:inline">
+          <button class="btn btn-danger" type="submit" style="padding:5px 10px;font-size:12px">&#x1F5D1;</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if not sources %}
+    <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">No sources yet - add one below</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+
+  <form method="post" action="/sources/add" style="margin-top:20px">
+    <div class="grid" style="gap:12px">
+      <div>
+        <label>Source Name</label>
+        <input name="name" placeholder="e.g. TechCrunch" required>
+      </div>
+      <div>
+        <label>URL (RSS feed or website)</label>
+        <input name="url" placeholder="https://techcrunch.com/feed/" required>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end">
+      <div style="flex:1">
+        <label>Type</label>
+        <select name="type">
+          <option value="rss">RSS Feed</option>
+          <option value="web">Web Scrape</option>
+        </select>
+      </div>
+      <button class="btn btn-success" type="submit" style="margin-bottom:10px">&#x2795; Add Source</button>
+    </div>
+  </form>
+</div>
+
+<!-- RUN SECTION -->
+<div class="run-section">
+  <div class="info">
+    <strong>Manual Run</strong>
+    <p>Scrape all active sources now and send matched articles to Telegram.</p>
+  </div>
+  <button class="btn btn-success" id="run-btn" onclick="runCycle()">&#9654; Run Now</button>
+</div>
+<div id="run-log"></div>
+
+<!-- RECENT SENT -->
+{% if sent %}
+<div class="card" style="margin-top:24px">
+  <h2><span class="icon">&#x1F4EC;</span>Recently Sent (last 20)</h2>
+  <table>
+    <thead><tr><th>Title</th><th>Source</th><th>Sent At</th></tr></thead>
+    <tbody>
+    {% for a in sent %}
+    <tr>
+      <td><a href="{{ a.url }}" target="_blank" style="color:var(--accent);text-decoration:none">{{ a.title or a.url }}</a></td>
+      <td style="color:var(--muted)">{{ a.source }}</td>
+      <td style="color:var(--muted)">{{ a.sent_at }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+</div>
+
+<script src="/static/script.js?v={{ timestamp }}"></script>
+</body>
+</html>
