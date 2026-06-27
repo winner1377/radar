@@ -5,10 +5,9 @@ Run with: gunicorn wsgi:app
 
 import os
 
-# Remove all proxy environment variables to ensure direct connections
-for key in list(os.environ.keys()):
-    if key.lower().endswith("_proxy"):
-        os.environ.pop(key)
+from proxy_utils import normalize_proxy_environment
+
+normalize_proxy_environment()
 
 from dashboard import app
 

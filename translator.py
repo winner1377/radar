@@ -6,7 +6,10 @@ from typing import List
 from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv()
+from proxy_utils import normalize_proxy_environment
+
+load_dotenv(override=True)
+normalize_proxy_environment()
 
 SHELL_ENV_KEYS = {
     "GAPGPT_API_KEY",
@@ -60,6 +63,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.5")
 
 TARGET_LANGUAGE = os.getenv("TRANSLATION_TARGET_LANGUAGE", "Persian")
+TELEGRAM_SUMMARY_MAX_CHARS = int(os.getenv("TELEGRAM_SUMMARY_MAX_CHARS", "3300"))
 
 
 # Prefer gapgpt if API key is available
@@ -162,18 +166,63 @@ Article part {index}/{len(chunks)}:
     return "\n\n".join(translated_chunks)
 
 
+def summarize_article_for_telegram(
+    title: str,
+    body: str,
+    source_url: str,
+    target_language: str = TARGET_LANGUAGE,
+    max_chars: int = TELEGRAM_SUMMARY_MAX_CHARS,
+) -> str:
+    """
+    Summarize an article into one Telegram-safe message.
+    """
+    source_block = f"\n\nSource URL:\n{source_url}" if source_url else ""
+    available_chars = max(1200, max_chars - len(source_block) - 40)
+    article_text = f"Title:\n{title or ''}\n\nArticle:\n{body or ''}".strip()
+
+    prompt = f"""Summarize the following article into {target_language} for a Telegram channel.
+
+Rules:
+- The final answer must be under {available_chars} characters.
+- Write one clear translated headline first.
+- Then write a concise news summary in 3 to 6 short bullet points.
+- Keep the most important facts, names, numbers, dates, locations, and consequences.
+- Do not add facts that are not in the article.
+- Do not include introductions like "here is the summary".
+- Use a clear journalistic tone.
+
+Article:
+
+{article_text}
+"""
+
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+            )
+            summary = response.choices[0].message.content.strip()
+            if len(summary) > available_chars:
+                summary = summary[:available_chars].rsplit("\n", 1)[0].strip()
+            if source_url:
+                summary = f"{summary}\n\nمنبع اصلی:\n{source_url}"
+            return summary.strip()
+
+        except Exception as e:
+            if attempt == 2:
+                message = str(e)
+                if PROVIDER == "gapgpt" and "quota exhausted" in message.lower():
+                    raise RuntimeError(
+                        "GapGPT token quota exhausted. Update GAPGPT_API_KEY or top up the token quota."
+                    ) from e
+                raise RuntimeError(f"Summarization failed: {e}")
+
+            time.sleep(2)
+
+    return ""
+
+
 def translate_article(title: str, body: str, source_url: str) -> str:
-    translated_title = translate_text(title) if title else ""
-    translated_body = translate_text(body)
-
-    final_message = ""
-
-    if translated_title:
-        final_message += f"{translated_title}\n\n"
-
-    final_message += translated_body.strip()
-
-    if source_url:
-        final_message += f"\n\nمنبع اصلی:\n{source_url}"
-
-    return final_message
+    return summarize_article_for_telegram(title, body, source_url)

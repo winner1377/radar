@@ -16,6 +16,10 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
+from proxy_utils import normalize_proxy_environment
+
+normalize_proxy_environment()
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -131,20 +135,15 @@ def matches_keywords(text, keywords):
 
 
 def _get_proxy_config():
-    """Return empty dict to disable all proxy usage.
-
-    System proxy settings (especially SOCKS proxies) cause errors with
-    the requests library when socksio/pysocks is not installed. Since we
-    need direct internet access for API calls, we disable proxies entirely.
-    """
+    """Return an empty explicit proxy config and rely on normalized env vars."""
     return {}
 
 
 def _build_session():
-    """Build a requests session with proxy disabled."""
+    """Build a requests session with normalized environment proxy support."""
     session = requests.Session()
-    session.trust_env = False  # Ignore http_proxy env vars
-    session.proxies.clear()    # Clear any default proxies
+    session.trust_env = True
+    session.proxies.update(_get_proxy_config())
     return session
 
 
@@ -491,6 +490,27 @@ def split_telegram_message(text, max_chars=TELEGRAM_SAFE_LIMIT):
     return parts
 
 
+def fit_single_telegram_message(text, max_chars=TELEGRAM_SAFE_LIMIT):
+    text = str(text or "").strip()
+    if len(text) <= max_chars:
+        return text
+
+    source_match = re.search(r"\n\nمنبع اصلی:\n\S+\s*$", text)
+    source_block = source_match.group(0).strip() if source_match else ""
+    suffix = f"\n\n{source_block}" if source_block else ""
+    ellipsis = "\n\n..."
+    body_limit = max_chars - len(suffix) - len(ellipsis)
+
+    if body_limit <= 0:
+        return text[:max_chars].strip()
+
+    body = text[:body_limit].rsplit("\n", 1)[0].strip()
+    if not body:
+        body = text[:body_limit].strip()
+
+    return f"{body}{ellipsis}{suffix}".strip()
+
+
 def build_translated_article_message(article):
     from translator import translate_article
 
@@ -538,15 +558,15 @@ def send_to_telegram(article):
 
     try:
         text = build_translated_article_message(article)
-        messages = split_telegram_message(text)
-        if not messages:
+        message = fit_single_telegram_message(text)
+        if not message:
             log.warning("[TG] Nothing to send after translation.")
             return False
 
         return post_telegram_messages(
             bot_token,
             channel,
-            messages,
+            [message],
             article.get("title", "No title"),
         )
     except Exception as e:
